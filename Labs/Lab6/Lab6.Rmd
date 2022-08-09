@@ -1,0 +1,146 @@
+---
+title: "Prediction Lab 1"
+author: "Data Science Team"
+output:
+  pdf_document: default
+  html_document:
+    keep_md: yes
+---
+
+## Today's Activity
+
+Today's activity will start with a demo of `lm` (linear model estimated via ordinary least squares). 
+
+```{r setup, include=FALSE}
+library(pacman)
+p_load(MASS, tidyverse, knitr, ggfortify)
+opts_chunk$set(echo = TRUE, tidy = TRUE, comment = "")
+```
+
+The MASS library contains the Boston housing  data set, which records ` medv` (median house value) for $506$ neighborhoods around Boston. We will seek to predict ` medv` using $13$ predictors such as ` rm` (average number of  rooms per house), ` age` (average age of houses), and ` lstat` (percent of households with low socioeconomic status).
+
+```{r, eval=TRUE}
+
+glimpse(Boston)
+
+```
+
+Because this dataset is part of the `MASS` package, there is a built-in help file that gives you a description of each variable. Take a minute to look at this now by searching `Boston` in the help window.
+
+Start by using the lm function to fit a linear regression model, with ` medv` as the response and ` lstat`  as the predictor. Store the returned object as `lm.fit`
+
+```{r}
+lm.fit <- lm(medv ~ lstat, data = Boston) # left side is value to predict, right side is the predictors to use 
+```
+
+If we type lm.fit, some basic information about the model is output. For more detailed information, we use summary(lm.fit). This gives us p-values and standard errors for the coefficients, as well as the $R^2$ statistic and F-statistic for the model. (Don't worry, you aren't supposed to know what these mean yet.) Try both
+
+```{r}
+summary(lm.fit)
+```
+
+```{r}
+lm.fit
+```
+
+**Q1**: What is the coefficient on lstat? How can you interpret it? Recall that 
+$$
+\hat y = \hat \beta_0 + \hat \beta_1 x,
+$$
+-0.95 is the coefficient, every 1 increase in x the y (median value) decreases by 0.95 
+
+where $x$ is lstat and $\hat \beta_0$ is the intercept. Are medv and lstat positively or negatively related? How can you interpret $\hat \beta_0$? 
+
+They are negatively related.  
+
+
+**Q2**: In your predictive model $\hat y = \hat \beta_0 + \hat \beta_1 x$, what is the effect of a one unit increase in the percent of low socioeconomic status population on median home price in dollars?
+
+the median home price decreases by 0.95
+
+
+**Q3**: Make a plot like the ones we made in the lecture that plots lstat against medv, overlays the regression line, and puts the mean squared prediction error in the title. Based on this plot, do you think that your prediction model fits the data well? Why or why not?
+
+```{r}
+MSE.fit <- mean(lm.fit$residuals^2) # MSE = mean(residuals squared) or w (yhat - y)^2 
+
+ggplot(Boston) + geom_point(aes(x = lstat, y = medv), size = 1) + geom_abline(slope = -0.95, intercept = 34.55) +
+  labs(x = "low socioeconomic status", y = "median price", subtitle = paste0("MSE: ", round(MSE.fit, 2)))
+
+```
+
+
+## More than one covariate
+
+Now, fit a linear regression of medv on both lstat and age. Print the summary table.
+
+```{r}
+lm.fit <- lm(medv ~ lstat + age, data = Boston)
+summary(lm.fit)
+```
+
+**Q4** Now what is the coefficient estimate for lstat? Did it increase or decrease? Does this change your interpretation from before? Speculate as to why the coefficient changed.
+
+-1.032, decreased from -0.95. Reason why is there might be a coreelation between age and lstat (corellation between the covariates) 
+
+The Boston data set contains thirteen variables, and so it would be cumbersome to have to type all of these in order to perform a regression using all of the predictors. Instead, we can use the following short-hand:
+
+```{r}
+lm.fit <- lm(medv ~., data=Boston) # includes all covariates 
+summary(lm.fit)
+```
+
+**Q5** Which predictors have the largest estimated coefficients? Is the relative magnitude interpretable here?
+
+nox variable has the most significant effect on the median house value bc its coefficient is the highest 
+
+``` {r}
+which.max(abs(lm.fit$coefficients[-1]))
+```
+
+## Movies data
+
+```{r}
+movies <- read.csv("https://web.stanford.edu/class/stats101/data/movies.csv", stringsAsFactors = FALSE)
+glimpse(movies)
+```
+
+Here we estimate a linear regression model on some variables from the movies data.
+
+```{r}
+movies.out <- lm(log10(gross/budget) ~ . - director - title, data = movies )
+summary(movies.out)
+
+```
+asteriks represent how significant a variable is 
+
+```{r}
+plot(movies.out)
+
+library(ggplot2)
+autoplot(movies.out)
+```
+
+Plot 1: residuals vs fitted values in linear regression. The residuals would be scattered irregularly, the clustuering shows that one assumption is invalidated 
+
+Plot 2: Q-Q plot finds type of distribution (skewedness)
+
+Plot 3: scale-location plot shows standardized residuals vs fitted values and same meaning as first one 
+
+Plot 4: shows any influential points 
+
+## Q6
+
+What is the response/outcome in the movies regression? Explain in words what you think this outcome is measuring about each movie.
+
+outcome: log10(gross/budget) 
+
+## Q7
+
+Compute mean squared error.
+
+```{r}
+mean(movies.out$residuals^2)
+```
+
+

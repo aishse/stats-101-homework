@@ -1,0 +1,210 @@
+---
+title: "Summarizing Economic Data"
+author: "Data Science 101 Team"
+output:
+  pdf_document: default
+  html_document:
+    keep_md: yes
+---
+
+
+
+This lab will start with a demonstration showing how to write loops and functions in the context of variable interest rates. You'll probably want to run the first part line-by-line to get a feel for what it does.
+
+
+```{r setup, echo=FALSE}
+knitr::opts_chunk$set(echo = TRUE,cache = TRUE, comment="")
+```
+
+# Part I: Loops and Functions
+
+A good book on R is "R for Data Science" by G. Grolemund and H. Wickham: https://r4ds.had.co.nz/index.html
+It explains functions in Ch. 19 and iteration (loops) in Ch. 21.
+
+```{r livedemo, echo=FALSE, eval=FALSE}
+
+r <- runif(365, min = -.001, max=.002) # this generates 365 random numbers between -0.001 and 0.002 which are meant to represent daily interest rates 
+
+# runif - (number of rand numbers, lower limit, upper limit)
+
+r_bar <- prod(1 + r)^(1/365) - 1  # geometric mean of 1+r (nth root of the product of all numbers)
+r_bar
+
+prod(1 + r) # returns products of all elements in that vector 
+
+(1 + r_bar)^365
+
+# this should be small, but not necessarily exactly zero (why not???)
+prod(1 + r) - (1 + r_bar)^365
+
+
+# this is a function for computing the geometric mean
+# why is this better than just writing the code we wrote above to calculate it? - avoids duplicating code, meaning avoids mistakes
+
+geometric_mean <- function(x){ 
+  N <- length(x)
+  prod(x)^(1/N)
+}
+
+r2018 <- runif(365, min = -.001, max=.002)
+# is this identical to what you computed above?
+# if not, why not?, the numbers are different bc it is a random number 
+
+geometric_mean(r2018 + 1) - 1
+
+
+# this is a for loop
+# this one doesn't do much...
+for(i in 1:10){
+  print(i^2)
+}
+
+# this is how you assign a vector
+maturities <- c(1, 30, 60, 90, 120, 365)
+
+# this for loop actually does something
+for(i in 1:length(maturities)){
+  rates <- runif(maturities[i], max = .002) # if no minimum specified, defaults to 0 
+  cat(paste("When maturity is", 
+            maturities[i], "days, the geometric mean is", 
+            round(geometric_mean(rates + 1) - 1, 6) , "\n")) 
+}
+
+# simulate one year's worth of rates 
+# calculate geometric_mean for different maturities
+# store in matrix
+
+X <- matrix(nrow = 1000, ncol = length(maturities))
+colnames(X) <- paste0("days_", maturities)
+
+# later you'll learn that this is not the most efficient way to do this...
+# take geometric mean over the number of days in each entry of maturities
+# repeat 1000 times
+
+for(i in 1:1000){
+  
+  daily_rates <- runif(365, max=.002)
+  
+  for(j in 1:length(maturities)){
+    
+    X[i, j] <- geometric_mean(1+daily_rates[1:maturities[j]])-1
+    
+  }
+  
+}
+
+# apply(array/matrix, margin, function to apply)
+# margin of 1 - applies to all rows
+# margin of 2 - applies to all columns 
+# returns a 2d array
+
+apply(X, 2, sd)   # The apply command allows you to compute the *standard deviation* of each column. 
+
+
+barplot(apply(X, 2, sd), 
+        main = "Variability of Rate", 
+        sub = "Mean of Geometric Means across 1000 sims")
+
+```
+
+# Part II: Studying income Inequality
+
+```{r}
+HH_income <- read.csv("https://web.stanford.edu/class/stats101/data/hinc06_clean_copy.csv", 
+                      colClasses = c("integer", "factor", rep("numeric", 10)))
+library('ggplot2')
+
+# the data are mostly integers but data of class "numeric" can take on larger values.
+# colClasses forces the appropriate columns to be stored as.numeric
+# which prevents nuissance errors below...
+
+```
+
+**Q2.1**: How is the data structured? How is different in form from some other data sets we've seen (say the movies data set)?
+
+```{r, echo=FALSE, eval=FALSE}
+library(dplyr)
+glimpse(HH_income)
+```
+
+Notice the data are in "wide" form. Instead of having a column for each variabe and a row for each observation, we have columns for the same variables but by ethnic group. We could convert using "reshape" or work around this format. In general, this format is not preferred but often it is how the data comes.
+
+**Q2.2**: Should the first row be included when making the plots below? (come back and answer this later)
+
+No, this the index of the income group. But `R` adds the index anyway when displaying the data.
+
+
+Lorenz curves plot cumulative proportion of population against cumulative proportion of national income. You can read things off this curve like "the bottom X% of the population gets Y% of the income." In `R`, cumulative sums (running totals) can easily be calculated. 
+
+```{r}
+# how to find the cumulative proportion 
+sum(1:10)
+cumsum(1:10)
+cumsum(1:10)/sum(1:10) # put on [0,1] scale
+```
+
+Lorenz is calculated as follows...
+```{r}
+# scatter plot of cumulative proportions of two variables, then plot them against each other (scatterplot)
+
+HH_income <- HH_income[-1,] # removes first column of dataset (total is irrelevent)
+
+Fr <- cumsum(HH_income$N)/sum(HH_income$N) # fraction pop
+Fr <- c(0, c(Fr))
+Q <- cumsum(HH_income$Income*HH_income$N)/sum(HH_income$Income*HH_income$N) # fraction of income
+Q <- c(0, c(Q))
+df.lorenz <- data.frame(Q=as.numeric(Q),Fr=as.numeric(Fr))
+
+ggplot(df.lorenz,aes(x=Fr,y=Q)) + geom_point() + geom_abline(slope=1,intercept=0)
+```
+
+**Q2.3** Why is it necessary to weight income by population in computing Q?
+
+Because the data are provided as number of people in each bin, average income in each bin. The total income in the bin is thus avg income in the bin times number of people.
+
+**Q2.4** Write a function that returns Fr and Q as a `data.frame` and use that function to calculate the Lorenz curve for two demographic groups in the data frame. Can you think of a way to have ggplot make an informative graphic? (*Hint*: `rbind` can stack data frames on top of each other.)
+
+
+```{r, echo=FALSE, eval=FALSE}
+# cumulative fraction  
+Fraction <- function(Ns){
+  Fr <- cumsum(Ns)/sum(Ns)
+  return(c(0, Fr))
+}
+# cummulative proportion multiplied by frequency
+Quantile <- function(Ns, Incomes) {
+  Q <- cumsum(Ns*Incomes)/sum(Ns*Incomes)
+  return(c(0, Q))
+}
+# creates lorenz curve
+Lorenz <- function(Ns, Incomes){
+  return(data.frame(Fr = Fraction(Ns), Q = Quantile(Ns, Incomes)))
+}
+
+Lorenz.white <- Lorenz(HH_income$N_White,HH_income$Income_White)
+Lorenz.asian <- Lorenz(HH_income$N_Asian[!is.na(HH_income$Income_Asian)],HH_income$Income_Asian[!is.na(HH_income$Income_Asian)])
+
+Lorenz.white$group <- 'white'
+Lorenz.asian$group <- 'asian'
+
+Lorenz.combine <- rbind(Lorenz.white,Lorenz.asian)
+
+ggplot(Lorenz.combine,aes(x=Fr,y=Q,col=factor(group))) + geom_point()
+
+```
+
+**Q2.5** How do your plots differ from one another?
+
+The *Gini* Coefficient is a summary of the Lorenz curve. Here is a function to compute it
+
+```{r}
+# area between lorenz curve and y = x line  
+gini <- function(Fr, Q){
+  n <- length(Fr)
+  gini <- 1 - sum((Fr[-1] - Fr[-n]) * (Q[-1] + Q[-n]))
+  return(gini)
+}
+gini(Lorenz.asian$Fr, Lorenz.asian$Q) # distribution of income in asian group is more unequal 
+gini(Lorenz.white$Fr, Lorenz.white$Q)
+```
+

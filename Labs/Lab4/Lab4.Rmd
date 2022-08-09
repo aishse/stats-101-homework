@@ -1,0 +1,147 @@
+---
+title: "Summarizing Data"
+author: "Data Science 101 Team"
+output:
+  pdf_document: default
+  html_document:
+    keep_md: yes
+---
+
+
+
+# Part I: Robustness of summaries
+
+## Question 1: How many numbers do you need to change in order to change the mean?
+
+Let's start by randomly generating 11 values from the standard normal curve, then compute the
+mean of these 11 values:
+
+
+```{r}
+set.seed(1)
+sample1 <- rnorm(11, 0, 1) # 11 random data points, mean of the data is 0, standard deviation of distribution is 1
+sample1 
+```
+How many numbers among the 11 values do we need to change so that the new sample mean becomes 2?
+
+# 1 value so the sum of all 11 values becomes 22
+
+```{r}
+sample1_mean <- mean(sample1)
+sample1_mean
+```
+
+
+## Question 2: How many numbers do we need to change in order to change the median?
+
+We will look at the same data.
+```{r}
+sample1_median <- median(sample1)
+sample1_median
+```
+
+- How is this sample_median calculated?
+- If we change the largest value to be 10, does the median change? If we change the smallest value to be -10, does the median change?
+
+no!!!!!!!!
+
+- In general, can we get an arbitrary value of median by changing just one value in this sequence? 
+no!!!
+
+- How many numbers do we need to change/add if we want a specific median? For example, please answer this question for the two scenarios: new_median = 0.5757, new_median = 1.511.
+
+ 1 number and make sure values on one side are greater and smaller on the other side. 
+
+
+## Question 3: Which one is less sensitive to "extreme" data points, the mean or the median?
+
+# Part II: Loss functions
+
+A loss function measures the distance between a reference point (usually a "center" statistic like mean or median denoted *z* in the lecture slides) and each observation. Another name for the city block distance/absolute error loss is the *L1* loss. Another name for the squared error loss/squared Euclidean distance is the *L2* loss. If **x** is a vector of *N* observations, the loss $L(\mathbf{x}, z)$ is also length *N*. Typically, we are interested in finding the center that minimizes average loss/average distance from the center. The average distance from the center is called *mean absolute error* (MAE) if we use city block distance and average distance from the centeris called *mean squared error* (MSE) if we use squared Euclidean distance.
+$$ 
+
+MAE(\mathbf{x}, z) = \sum_{i=1}^{n} |x_i - z|, MSE(\mathbf{x}, x) = \sum_{i=1}^n (x_i - z)^2 \\
+
+mean(\mathbf{x}) = \arg \min_{z} MSE(\mathbf{x}, z), \\ median(\mathbf{x}) = \arg \min_{z} MSE(\mathbf{x}, z)
+$$
+```{r}
+L1_loss <- abs(sample1 - sample1_median)
+# mean absolute error 
+MAE <- mean(L1_loss)
+MAE
+```
+
+```{r}
+L2_loss <- (sample1 - sample1_mean)^2
+MSE <- mean(L2_loss)
+MSE
+```
+
+If we need to compute the *MAE* repeatedly, then it is useful to define a function that computes it:
+
+```{r}
+MAE <- function(sample, center) {
+  
+  L1_loss <- abs(sample - center)
+  mean_L1_loss <- mean(L1_loss)
+  
+  return(mean_L1_loss)
+  
+}
+MAE(sample1, 1)
+
+```
+
+
+
+Now check that we get the same answer as before by calling this function using the data and the median
+as arguments:
+
+```{r}
+MAE(sample1, sample1_median)
+```
+
+
+**Task**: In lecture, we claimed that the median minimizes *L1* (absolute error) loss and the mean minimizes *L2* (squared error) loss. Let's see if this is true. Generate a vector that represents
+a grid from 0.3 to 0.4 with a spacing of 0.001. Evaluate the *MAE* on this grid, i.e. each grid point
+serves as a center in turn. Plot the *MAE* as a function of these center values.
+ 
+```{r}
+centers <- seq(0.3, 0.4, 0.001)
+
+mae <- c()
+
+for(i in 1:length(centers)) {
+  mae[i] <- MAE(sample1, centers[i])
+}
+
+```
+
+
+```{r}
+df <- data.frame(x = centers, y = mae)
+ggplot(df, aes(x, y )) + geom_point()
+
+plot(centers, mae)
+```
+
+Find the minimum of these *MAE*s. Then find the element of centers that attains this minimum:
+
+```{r}
+min(mae)
+```
+
+The function which.min(x) gives the index of the vector x at which the minimum of x is attained.
+
+TO find the index of the sequence where mae is minimized, call which.min().
+
+```{r}
+which.min(mae)
+```
+
+
+
+```{r}
+centers[which.min(mae)]
+```
+

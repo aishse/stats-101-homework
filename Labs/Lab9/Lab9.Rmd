@@ -1,0 +1,149 @@
+---
+title: 'Inference Lab 1: the Bootstrap'
+author: "Data Science Team"
+output:
+  html_document:
+    df_print: paged
+  html_notebook: default
+  pdf_document: default
+---
+
+```{r setup, echo=FALSE}
+knitr::opts_chunk$set(message=FALSE,warning = FALSE, comment="", fig.height=4)
+```
+
+
+## Today's Activity
+
+Today's activity on the [bootstrap](https://en.wikipedia.org/wiki/Bootstrapping_(statistics)) will 
+start with a demo of how to code a bootstrap for one or two variables. 
+
+```{r}
+library(dplyr)
+library(ggplot2)
+movies <- read.csv("https://web.stanford.edu/class/stats101/data/movies.csv", stringsAsFactors = FALSE)
+glimpse(movies)
+```
+
+Below is the code for bootstrapping a generic statistic `stat` with data `x`, using
+B bootstrap samples:
+
+# Bootstrapping a Univariate Statistic
+
+```{r, eval=FALSE}
+# x - data points for boot strap sample 
+# stat - function that represents statistic wanting to be calculated from the samples 
+# number of bootstrap samples 
+
+boot <- function(x, stat, B=1000){
+  
+  n <- length(x)
+  boot_stats <- matrix(nrow=B)
+  
+  for(i in 1:B){
+    indices <- sample(n, replace=TRUE)
+    boot_stats[i] <- stat(x[indices])
+  }
+  
+  return(boot_stats)
+}
+```
+
+For example, if we want to bootstrap the mean with the data `x` and then compute the 2.5th percentile
+and the 97.5th percentile of the bootstrap replicates (we will see in class that this is
+a 95 percent bootstrap confidence interval):
+
+```{r, eval=FALSE}
+x = rnorm(100)
+mean.x.boots <- boot(x, mean, 1000)
+
+quantile(mean.x.boots, c(.025, 0.975))
+
+
+hist(mean.x.boots)
+
+```
+
+**Task** Choose a genre and create a data frame that only contains that data for that genre (but not one with a trivial number of observations). Use this genre throughout.
+
+```{r, eval=FALSE}
+sort(table(movies$genre), decreasing = TRUE)
+movies_comedy = subset(movies, genre == "Comedy")
+```
+
+**Task** Choose a variable and bootstrap the mean. Now calculate a 95% confidence interval using the quantile function on the bootstrap replicates. Also compute the 95% confidence interval using normal approximation: mean +/- 2 SE,
+where the SE is computed with the bootstrap.
+
+``` {r}
+comedyVotes = movies_comedy$votes 
+mean.comedy.votes = boot(comedyVotes, mean, 1000)
+
+quantile(mean.comedy.votes, c(0.025, 0.975))
+
+SE = sd(mean.comedy.votes)
+c(mean(movies_comedy$votes) - 2*SE, mean(movies_comedy$votes) + 2*SE)
+
+hist(mean.comedy.votes)
+
+```
+
+**Question** Now bootstrap the median. Which do you expect to be more robust (stable across bootstrap simulations), the mean or the median, and why? 
+``` {r}
+median.comedy.votes = boot(comedyVotes, median, 1000)
+
+quantile(median.comedy.votes, c(0.025, 0.975))
+hist(median.comedy.votes)
+```
+
+## Bootstrapping a Bivariate Statistic
+
+The correlation coefficient that we discussed in class is also called Pearson's correlation.
+There is a different correlation coefficient called Spearman's correlation, which is more
+robust to outlying values (just as the median is more robust than the mean).
+
+```{r, eval=FALSE}
+
+bi_boot <- function(x, y, stat, B, ...){
+  
+  n <- length(x)
+  boot_stats <- matrix(nrow=B)
+  
+  for(i in 1:B){
+    indices <- sample(n, replace=TRUE) 
+    boot_stats[i] <- stat(x[indices], y[indices], ...)
+  }
+  
+  return(boot_stats)
+  
+}
+
+Nsims <- 10000
+pearsons <- bi_boot(movies$gross, movies$budget, cor, Nsims)
+spearmans <- bi_boot(movies$gross, movies$budget, cor, Nsims, method = "spearman")
+
+# inspect quantiles
+pearsons %>% quantile(c(0.025, .1, .5, .9, 0.975)) %>% round(4) 
+spearmans %>% quantile(c(0.025, .1, .5, .9, 0.975)) %>% round(4)
+
+# or summary stats
+mean(pearsons)
+sd(pearsons)
+mean(spearmans)
+sd(spearmans)
+
+# or use ggplot to display histogram
+boot_cor <- data.frame(correlation = c(pearsons, spearmans), 
+                       type = c(rep("Pearson's", Nsims), rep("Spearman's", Nsims)))
+
+ggplot(boot_cor, aes(x = correlation, fill=type)) + geom_histogram()
+```
+
+**Task** Choose two different continuous variables and bootstrap the Pearson's correlation as well as the Spearman correlation. Plot the histograms along with the 95% confidence interval (from the quantiles). Also add a vertical line for the correlation in the full sample. Do you conclude the correlation is positive, negative, or that there is no clear evidence of correlation?
+
+``` {r}
+bootplot = ggplot(subset(boot_cor, type = "Pearson's"), aes(x = correlation)) + geom_histogram()
+
+bootplot = bootplot + geom_vline(xintercept = quantile(pearsons, c(0.025, 0.975))) 
+bootplot = bootplot + geom_vline(xintercept = cor(movies$gross, movies$budget), color = "red")
+bootplot
+```

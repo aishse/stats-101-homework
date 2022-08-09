@@ -1,0 +1,173 @@
+---
+title: "Prediction Lab 2"
+author: "Data Science 101"
+output:
+  html_document:
+    keep_md: yes
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(comment="", message = FALSE, warning = FALSE, 
+                      eval=FALSE # delete eval=FALSE when you want to knit
+                      )
+```
+
+# Note
+
+After the first few lines, there are several places where you will be prompted to enter code. There is also some starter code you may find useful. Note that for this lab we wrote above `eval=FALSE`; beyond the first few lines, most of the code won't run unless you complete the tasks and answer the prompts. When you are done and want to knit the file, delete `eval=FALSE` above.   
+
+# Data Source
+
+We gathered the data using the Spotify API for R, `library(spotifyr)`, which allows students and researchers to access data about how they classify music for educational purposes. We gathered a sample of 'grunge' music, which gained popularity in Seattle in the 1980s and 1990s. Configuring `library(spotifyr)` takes some time and so is not part of lab. If you are interested in using `spotifyr' for projects about music beyond this class, you may wish to check out [https://github.com/charlie86/spotifyr](https://github.com/charlie86/spotifyr). 
+
+# Step 1: Load the Data
+
+Download the data from Canvas and place `grunge.csv` in the appropriate folder, altering the path below as needed.
+
+```{r, echo=TRUE}
+library(dplyr)
+
+grunge <- read.csv("grunge.csv")   # place data in appropriate folder 
+
+glimpse(grunge)
+```
+
+**Question**: Which features do you think would be most likely to predict which tracks become popular? (Name two or three.)
+Energy, track_popularity, album_popularity 
+# Step 2: Pre-Processing the Data
+
+**Task**: Make `track_popularity` the outcome we wish to be able to predict. Create a copy of this variable called `y` and place it on  $[0,1]$. (Feel free to pick a different outcome but make sure that it is continuous, not categorical, so that the syntax below is appropriate.)
+
+```{r}
+y = grunge$track_popularity
+y = y/max(y)
+```
+
+Making predictions with factors (categorical variables) is perfectly possible but it can pose some practical headaches (e.g. for cross-validation, which we will discuss later, if different levels are observed in the train and test data; also, for the examples below with polynomials, factors would need to be handled differently.) Here is `dplyr` syntax to create a `data.frame` with only the continuous variables. Notice the `-` drops variables, much like negative subscripts drop elements of vectors, matrices, and data frames in R. Also, the command `starts_with` performs approximate pattern matching on the column names of the data frame.
+```{r}
+X <- dplyr::select(grunge, -band, -X, -time_signature, 
+                   -starts_with("track"), -starts_with("album"))
+
+# the dplyr::FUNCTION syntax is recommended for select and filter
+# minus side means to remove a variable from a data frame 
+
+X <- select_if(X, is.numeric)   # drop other qualitative variables
+
+N <- nrow(X)
+P <- ncol(X)
+```
+**Questions** What are the dimensions of the **X** matrix? Which features (explanatory variables) are included in it?
+
+1266 w 10 variables (covariates)
+Features are only numerical variables from the grunge dataset 
+
+# Step 3: Split the Data
+
+Create a variable with the `sample` command to assign all observations to either `train` or `test`. This can be done `sample(c(TRUE, FALSE)...)`. Remember you will have to specify the other parameters of `sample`, including `prob`, which will reflect how much data you want to use for training (typically 80% or 90%). 
+
+```{r}
+set.seed(123)     # choose any number for breadcrumb trail... (makes it reproducible)
+
+training <- sample(c(TRUE, FALSE), replace=TRUE, size=N, prob=c(0.8, 0.2)) 
+# first param is a list (output of smaple is random vector w every element being true or false), replace = true means datapoints are not removed from the dataset, size is number of random data points created, probability shows 80% belongs to training data, 20% belongs to test data set
+
+# training set shows how many trues are in training vector and how many falses are in vector 
+```
+**Question**: How many observations are in your training data? In the test?
+```{r}
+table(training)
+
+```
+
+**Task**: Now, using the indicator variable `training`, follow the pattern below to create `ytest` and `Xtrain`. 
+```{r, eval=FALSE}
+ytrain <- y[training]  
+ytest = y[!training]
+
+Xtrain = X[training,]
+Xtest <- X[!training,]
+```
+
+
+# Step 4: Train Model 1
+
+First, let's create a matrix to store the results of MSE (mean squared error) for two models, in and out of sample.
+
+```{r}
+MSE <- matrix(nrow=2, ncol=2)      
+colnames(MSE) <- c("model_1", "model_2")
+rownames(MSE) <- c("train", "test")
+MSE
+```
+
+Use `lm` to fit the model and then display its summary. Also, compute mean squared error of the trained
+model.
+
+```{r}
+model1.trained <- lm(ytrain ~ ., Xtrain)
+summary(model1.trained)
+cat("MSE training Model 1:",
+    mean((ytrain - model1.trained$fitted.values)^2))
+
+MSE[1,1]  <- mean((ytrain - model1.trained$fitted.values)^2)         
+```
+
+# Step 5: Make Predictions (Model 1)
+
+Use `predict` to make predictions with `Xtest`.
+
+```{r}
+
+yhat.model1 = predict(model1.trained, Xtest)
+```
+
+# Step 6: Evaluate
+
+Compare `ytest` to the predicted values.
+```{r, eval=FALSE}
+MSE[2,1] <- mean((ytest - yhat.model1)^2)
+MSE
+```
+
+# Step 6: Repeat 1-5 for a Third Degree Polynomial
+
+Some syntax for creating a polynomial matrix... 
+
+```{r, eval=FALSE}
+Xcubic <- cbind(X, X^2, X^3)
+colnames(Xcubic) <- paste0(colnames(Xcubic), "_",
+                           c(rep(1, P), rep(2, P), rep(3, P)))
+colnames(Xcubic) # must have unique column names for data.frame approach
+```
+**Question**: What are the new column names? What is their significance?
+
+`
+**Task**: Split the polynomial **X** matrix into training and testing called `Xcubic_train` and `Xcubic_test`.
+```{r}
+set.seed(123)
+Xcubic_train= Xcubic[training,]
+Xcubic_test = Xcubic[!training,]
+
+```
+**Task**: Train model 2. Next, compute MSE in and out of sample and store those goodness of fit statistics in `MSE`.
+```{r}
+model2.trained = lm(ytrain ~., Xcubic_train)
+summary(model1.trained)
+MSE[1,2]  <- mean((ytrain - model2.trained$fitted.values)^2)  
+yhat.model2 = predict(model2.trained, Xcubic_test)
+MSE[2,2] = mean((ytest- yhat.model2)^2)  
+
+```
+
+# Step 7: Model Comparison
+
+Evaluate the two models in terms of MSE, in and out of sample, and comment on whether the findings suggest overfitting. You may wish to compare the models in terms of RMSE (root mean squared error) instead.
+```{r}
+MSE
+RMSE <- MSE^.5 # root mean squared error is on same scale as y, here [0,1]
+RMSE
+
+```
+
+

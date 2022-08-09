@@ -1,0 +1,88 @@
+---
+title: 'Inference Lab2: Confidence Intervals'
+output:
+  html_document:
+    df_print: paged
+---
+
+## Today's Activity
+
+Today's activity will go more in-depth into confidence intervals and the bootstrap. 
+
+```{r, message=FALSE, warning=FALSE}
+library(dplyr)
+movies <- read.csv("https://web.stanford.edu/class/stats101/data/movies.csv", stringsAsFactors = FALSE)
+sort(table(movies$genre), decreasing = TRUE)
+```
+
+**Task 1** Create new variables`gross` and `budget` for the genre `Animation`.
+
+``` {r}
+
+gross = filter(movies, genre == "Animation")$gross 
+budget =  filter(movies, genre == "Animation")$budget 
+
+```
+
+**Task 2** Use the square root law and the plug in principle to find a 95% confidence interval for the population mean $\mu$ for `gross` for your genre (not for `budget`). For now, pretend that the sample standard deviation were known to be accurate.
+
+$$
+(\bar{\mathbf{x}} - \frac{z_{\alpha/2}\sigma}{\sqrt{n}}, \bar{\mathbf{x}} + \frac{z_{\alpha/2}\sigma}{\sqrt{n}}) \approx (\bar{\mathbf{x}} - \frac{1.96s}{\sqrt{n}}, \bar{\mathbf{x}} + \frac{1.96s}{\sqrt{n}}) 
+$$ 
+
+Notice the particular number $z_{\alpha/2} = 1.96$ in the above equation comes from the assumption that the sample mean follows a normal curve and that the variance is known. You can verify the constant in `R` as follows.
+
+
+```{r}
+qnorm(0.975)
+
+SE = sd(gross)
+
+c(mean(gross) - 2*SE, mean(gross) + 2*SE)
+```
+where 0.975 is used since $\alpha = 1 - 0.95 = 0.05$ and we want to obtain a symmetric confidence interval with $\alpha/2 = 0.025$ outside of the interval on either side.
+
+Now let's be more realistic and not assume the sample standard deviation is the same the population standard deviation. 
+
+**Question** Why is that a safer assumption?
+
+The sample could not be an accurate representation of the entire population 
+
+Sometimes the data distribution can be far from normal. Therefore, the sample SD might not be a good estimate of the population SD if the sample size is not large enough.
+
+**Task 3** A Student-t distribution is used (instead of a Z distribution) when the variance is unknown. It takes sample size into consideration, generally yielding wider confidence intervals on smaller samples. For larger samples, it yields the same intervals as the Z distribution (qnorm). The appropriate t-value is computed with $N - 1$ degrees of freedom, where $N$ is the sample size (and the -1 accounts for the fact that you also have to compute the sample mean from the same data). Report a 95% confidence interval for your genre computed instead using the t-value that is appropriate for sample size (i.e., instead of 1.96).  
+```{r}
+N <- sum(movies$genre == "Comedy") 
+qt(0.975,
+   df = (N - 1))
+
+N = sum(movies$genre == "Animation") # more accurate t statsitic to get confidence interval 
+tval = qt(0.975,
+   df = (N - 1))
+SE = sd(gross) 
+c(mean(gross) - tval*SE, mean(gross) + tval*SE)
+```
+
+**Task 4** Bootstrap the sample mean (of `gross` for your genre) 1000 times. Now (1) use the standard deviation of those sample means (as the standard error) to construct a 95% confidene interval (using Estimate $\pm$ 1.96*SE). 
+``` {r}
+boot <- function(x, stat, B=1000){
+  
+  n <- length(x)
+  boot_stats <- matrix(nrow=B)
+  
+  for(i in 1:B){
+    indices <- sample(n, replace=TRUE)
+    boot_stats[i] <- stat(x[indices])
+  }
+  
+  return(boot_stats)
+}
+meanBudget = boot(gross, mean, 1000)
+SE = sd(meanBudget) 
+c(mean(gross) - 1.96*SE, mean(gross) + 1.96*SE)
+```
+**Task 5** Now report a 95% confidence interval for profit (gross - budget for animation movies) using the quantiles of the bootstrap replicates. 
+
+**Task 6** Repeat Tasks 1-5 for `Comedy`. Compare and contrast each of the confidence intervals. Do you notice any surprising results or trends?
+
+

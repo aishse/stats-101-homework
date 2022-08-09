@@ -1,0 +1,256 @@
+---
+title: 'Testing Lab 2: Contingency Tables'
+author: "Data Science Team"
+output:
+  html_document:
+    df_print: paged
+  html_notebook: default
+  pdf_document: default
+---
+
+```{r setup, echo=FALSE}
+knitr::opts_chunk$set(message=FALSE, warning = FALSE, comment="", fig.height=4)
+```
+
+
+## Today's Activity
+
+Today's activity will start with a demo of how to simulate a p value for a contingency table.  
+
+
+### The Data
+
+We will work with the census data from the last lab.
+
+```{r}
+
+custdata <- read.table('custdata.tsv',
+                      header=TRUE, sep='\t')
+cross <- table(custdata$sex, custdata$marital.stat)
+colnames(cross)[1] <- "Divorced"
+colnames(cross) <- gsub(" ", "_", colnames(cross)) # get rid of spaces in column names (nuissance)
+cross                              # cross as in crosstable
+
+```
+
+
+### Probabilities under the Null (Independence)
+
+If sex and marital status **were independent** then because
+$$
+\pi_{jk} = p_j  q_k
+$$
+we would expect:
+$$\hat{\pi}_{jk} \approx \hat{p}_j \hat{q}_k$$
+
+```{r, echo=FALSE, eval=FALSE}
+N <- sum(cross)
+p.hat <- rowSums(cross)/N
+q.hat <- colSums(cross)/N
+
+q.hat    # marginals
+p.hat
+
+ind_probs <- matrix(nrow = nrow(cross),
+                             ncol = ncol(cross))
+
+for(j in 1:nrow(ind_probs)){
+  for(k in 1:ncol(ind_probs)){
+    ind_probs[j, k] <- p.hat[j] * q.hat[k]
+  }
+}
+
+ind_probs
+
+
+expected_counts <- N * ind_probs  # benchmark NULL expectation
+# single most likely table to have been produced if NULL is true
+
+```
+
+### Discrepancy Measure: Maximum Absolute Discrepancy
+
+Suppose we have a sample indexed $i=1, 2, .... N$ and two qualitative variables (here, sex and marital status). Let $j$ index sex such that Female = 1 and Male = 2 and let $k$ index marital status such that Divorced = 1, Married (currently) = 2, Never married = 3, and Widowed = 4.
+
+Consider the following measure of **how far apart** two contingency tables ($O$ observed, $E$ expected) are:
+$$d(O,E) = \max_j \max_k |O_{jk}-E_{jk}|$$
+
+```{r, echo=FALSE, eval=FALSE}
+
+how_far <- function(observed, expected){
+  max(abs(observed - expected))
+}
+test_stat_MAD <- how_far(cross, expected_counts)
+test_stat_MAD
+```
+
+
+### Simulating Multinomial Data
+
+```{r}
+one_season <- rmultinom(1, 82, list(win = .5, lose=.3, tie=.2))   # 82 hockey games in season
+colnames(one_season) <- "season_totals"  # with population percentages: 50% wins, 30% losses, 20% ties
+one_season                                      
+
+five_seasons <- rmultinom(5, 82, list(win = .5, lose=.3, tie=.2))
+colnames(five_seasons) <- paste0("season", 1:5)
+five_seasons
+
+colSums(five_seasons)
+rowMeans(five_seasons/82)   # sample percentages should resemble c(.5, .3, .2)
+```
+
+### Simulating a Contingency Table
+
+How many probabilities do we need?
+
+```{r}
+dim(cross)
+nrow(cross) * ncol(cross)
+```
+
+```{r, echo=FALSE, eval=FALSE}
+independent_probs <- list()
+
+for(j in 1:nrow(cross)){
+  for(k in 1:ncol(cross)){
+    
+    independent_probs[[paste0(rownames(cross)[j], "_", colnames(cross)[k])]] <- p.hat[j] * q.hat[k]
+    
+  }
+}
+
+independent_probs
+
+one_sim <- rmultinom(1, N, independent_probs)
+one_sim
+
+matrix(one_sim, nrow=2, byrow=TRUE)
+
+one_sim <- matrix(one_sim, nrow=2, byrow=TRUE, dimnames = dimnames(cross))
+one_sim
+
+null_sims <- function(Nsims, null_probs, expected, N, metric=how_far, ...){
+  
+  sim_stats <- matrix(nrow=Nsims)
+  
+  for(i in 1:Nsims){
+    
+    one_sim <- rmultinom(1, N, null_probs)
+    one_sim <- matrix(one_sim, nrow=2, byrow=TRUE)
+    sim_stats[i] <- metric(one_sim, expected,  ...)
+    
+  }
+  if(Nsims == 1) return(drop(sim_stats)) else return(sim_stats)
+  # if Nsims == 1, don't return the single point estimate as a matrix,
+  # which is less convenient for subsequent testing ... 
+  
+}
+
+MAD_sims <- null_sims(10000, independent_probs, expected_counts, N, how_far)
+
+hist(MAD_sims, xlim=c(0,100))
+abline(v=test_stat_MAD)
+
+p_MAD <- mean(MAD_sims > test_stat_MAD)
+
+
+
+
+```
+
+
+### Discrepancy Measure: Pearson's
+
+[Pearson's $X^2$](https://en.wikipedia.org/wiki/Pearson%27s_chi-squared_test) is another measure of discrepency:
+
+$$\chi^2(O,E)=\sum_j\sum_k\frac{(O_{jk}-E_{jk})^2}{E_{jk}}$$
+
+**Task** Write a function that adapts `how_far` by adding a parameter called `metric` if `metric` == "MAD" return the mean absolute difference as above. If `metric` is inputted as "pearson" return the calculation above. 
+
+```{r, echo=FALSE, eval=FALSE}
+how_far <- function(observed, expected, metric){
+  if (metric == "MAD"){
+    return( max(abs(observed - expected)))
+  }
+  else if (metric == "pearson") 
+  {
+    return (sum((observed - expected)^2/expected))
+  }
+}
+test_stat_pearson <- how_far(cross, expected_counts, "pearsons")
+```
+
+**Task** Repeat the analysis above using Pearson's metric. Plot a histogram of the simulations under the null, make sure an abline for the test statistic is clearly displayed, and give the histogram informative labels, especially including the p-value. Describe in the surrounding text whether you decide to reject the null or not.
+
+```{r, echo=FALSE, eval=FALSE}
+independent_probs <- list()
+
+for(j in 1:nrow(cross)){
+  for(k in 1:ncol(cross)){
+    
+    independent_probs[[paste0(rownames(cross)[j], "_", colnames(cross)[k])]] <- p.hat[j] * q.hat[k]
+    
+  }
+}
+
+independent_probs
+
+one_sim <- rmultinom(1, N, independent_probs)
+one_sim
+
+matrix(one_sim, nrow=2, byrow=TRUE)
+
+one_sim <- matrix(one_sim, nrow=2, byrow=TRUE, dimnames = dimnames(cross))
+one_sim
+
+null_sims <- function(Nsims, null_probs, expected, N, metric=how_far, ...){
+  
+  sim_stats <- matrix(nrow=Nsims)
+  
+  for(i in 1:Nsims){
+    
+    one_sim <- rmultinom(1, N, null_probs)
+    one_sim <- matrix(one_sim, nrow=2, byrow=TRUE)
+    sim_stats[i] <- metric(one_sim, expected,  "pearson")
+    
+  }
+  if(Nsims == 1) return(drop(sim_stats)) else return(sim_stats)
+  # if Nsims == 1, don't return the single point estimate as a matrix,
+  # which is less convenient for subsequent testing ... 
+  
+}
+
+pearson_sims <- null_sims(10000, independent_probs, expected_counts, N, how_far)
+
+hist(MAD_sims, xlim=c(0,100))
+abline(v=test_stat_MAD)
+
+p_pearsons <- mean(pearson_sims > test_stat_pearson)
+
+
+
+```
+Reject the null 
+
+**Question** What is the main differences between MAD and the Pearson metric? How do the histograms compare and contrast in this case?
+The variance of the chi statistic is much larger than the mean absolute difference (MAD), making MAD more robust than chi^2 distance 
+
+## Activity 3
+
+Generate a reference distribution with 5000 simulations *under the assumption of independence* and then simulate 1000 p-values (also under the assumption of independence) and plot their histogram. Do they appear to be uniformly distributed? Why or why not?
+
+
+```{r, echo=FALSE, eval=FALSE}
+reference_dist = null_sims(5000, independent_probs, expected = expected_counts, N = sum(cross), metric = how_far, "MAD")
+hist(reference_dist)
+
+p = matrix(nrow = 1000)
+for (i in 1:1000) {
+  p[i] = mean(reference_dist > null_sims(1, independent_probs, expected_counts, N = sum(cross), metric = how_far, "MAD"))
+}
+
+hist(p, main = "pvalues", xlim = c(0,1))
+```
+
+

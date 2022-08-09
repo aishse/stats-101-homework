@@ -1,0 +1,109 @@
+---
+title: "Data Science 101 Review Lab"
+date: "5/26/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning = FALSE)
+```
+
+## Today's Activity
+
+Today's activity will analyze a data set of the 2016 United States presidential election; the unit of observation is the county. The data are replication materials for Mohanty, Pete and Robert Shaffer. 2019. 'Messy Data, Robust Inference?' *Political Analysis*, 27 (2) [link](https://www.cambridge.org/core/journals/political-analysis/article/messy-data-robust-inference-navigating-obstacles-to-inference-with-bigkrls/7CB852E25FF58D06ED6888F1A3A13F54). which are available in full on Harvard's Dataverse website [link](https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/CYYLOK). 
+
+# The data
+
+Vote share is the proportion of votes a candidate receives divided by the sum of the proportion that the two major candidates receive. This is useful in the United States since third party candidates typically receive a very small number of votes in presidential elections. Here we focus on the change in Republican vote share between 2012 and 2016, measured as a percentage. For county i = 1, 2, ... , N, we operationalize the election results as 
+
+$$y_i = 100*\left( \frac{p_i^{\text{Trump2016}}}{p_i^{\text{Trump2016}} + p_i^{\text{Clinton2016}}} - \frac{p_i^{\text{Romney2012}}}{p_i^{\text{Romney2012}} + p_i^{\text{Obama2012}}} \right)$$
+Mohanty and Shaffer (2019) investigate whether the opioid crisis affected the election and so CDC data on mortality rates by county (and change in them over the last decade) are also included alongside standard demographics and predictors.
+
+Start by reading in both data files and combining them into a data frame called 'election'.
+
+```{r}
+X <- read.csv("X_2016.csv") # contains dummies columns for state, washington DC
+y <- unlist(read.csv("y_gop_2016_delta.csv"))
+
+election <- X[,1:17] # data other than state
+election$state <- colnames(X)[-c(1:17)][apply(X[,-c(1:17)], 1, which.max)] # state as one column
+election$y <- y
+```
+
+
+(1) Start by describing the data. How many observations are there? Which state has the most counties? Which of the *x* variables do you think likely had a large effect on elections? Present summary statistics of *y* as well as three *x* variables.
+
+
+(2) What is the correlation between *y* and an *x* variable you think may predict election results in the US? 
+
+(3) Create a histogram of *y*. How many counties would describe as having similar results to 2012? 
+
+
+(4) Create a scatterplot of *y* with the age of the county's voters as *x*. Have the color of the points indicated by *rural* (an ordinal variable from 1-9, where 1 indicates most urban and 9 indicates most rural). 
+
+
+(5) Choose a state where you are from or have lived or would like to. Plot a histogram of the election results for that state with a line indicating the state average and another at 0. Now bootstrap the election results for this state and plot the histogram.  
+
+
+(6) Construct a 95% confidence interval for the mean level of *y* using a normal approximation and again using the bootstrap.
+
+
+(7) Using the bootstrap, construct a 95% confidence interval for the correlation between the unemployment rate and *y*.
+
+
+(8) Create a dummy variable which indicates whether *y* is positive called *g*. Perform a chi square test. Does *g* appear to be independent of *rural*?
+
+(9) Perform a t-test on *y*. Does it appear to differ from 0?
+
+
+(10) Compare the election results in the most rural parts of the country. Perform a permutation test of the hypothesis that, of those, Texas differs from the rest of the country.
+
+(11) Below find two models which attempt to predict the electoral swing as a function of latitude and longitude. 
+
+(a) Which of the three loss functions below is arguably the best (in your view) in the context of election forecasting?  
+
+
+(b) Which model performs better? 
+
+
+(c) Does either show evidence of overfitting?
+
+
+```{r}
+RMSE <- function(targets, estimates) mean((targets - estimates)^2)^.5
+MAE <- function(targets, estimates) mean(abs(targets - estimates))
+ML0 <- function(targets, estimates, epsilon=0.05) mean(abs(targets - estimates) < epsilon)
+
+test_fit <- train_fit <- matrix(ncol = 2, nrow = 3)
+colnames(train_fit) <- c("train_model1", "train_model2")
+colnames(test_fit) <- c("test_model1", "test_model2")
+rownames(test_fit) <- rownames(train_fit) <- c("RMSE", "MAE", "ML0")
+
+set.seed(2016)
+training <- sample(c(TRUE, FALSE), nrow(election), replace=TRUE, p=c(0.8, 0.2))
+
+model1.trained <- lm(y ~ lat + lon, election[training,])
+train_fit[1,1] <- RMSE(model1.trained$fitted.values, election$y[training])
+train_fit[2,1] <- MAE(model1.trained$fitted.values, election$y[training])
+train_fit[3,1] <- ML0(model1.trained$fitted.values, election$y[training])
+
+y_hat1 <- predict(model1.trained, election[!training,])
+test_fit[1,1] <- RMSE(y_hat1, election$y[!training])
+test_fit[2,1] <- MAE(y_hat1, election$y[!training])
+test_fit[3,1] <- ML0(y_hat1, election$y[!training])
+
+model2.trained <- lm(y ~ lat + lon + lat*lon + I(lat^2) + I(lon^2) + I(lat^3) + I(lon^3) + I(lat^4) + I(lon^4), 
+                       election[training,])
+train_fit[1,2] <- RMSE(model2.trained$fitted.values, election$y[training])
+train_fit[2,2] <- MAE(model2.trained$fitted.values, election$y[training])
+train_fit[3,2] <- ML0(model2.trained$fitted.values, election$y[training])
+
+y_hat2 <- predict(model2.trained, election[!training,])
+test_fit[1,2] <- RMSE(y_hat2, election$y[!training])
+test_fit[2,2] <- MAE(y_hat2, election$y[!training])
+test_fit[3,2] <- ML0(y_hat2, election$y[!training])
+
+train_fit
+test_fit
+```
+

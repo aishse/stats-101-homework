@@ -1,0 +1,367 @@
+---
+title: "Sampling Variability Lab 1"
+author: "Data Science Team"
+output:
+  html_document:
+    keep_md: yes
+  pdf_document: default
+---
+
+
+
+## Today's Activity
+
+Today's activity will demonstrate some of key sampling commands in R.  
+
+**Q1**. Let's look at an outcome *X* which follows the normal curve with mean 0 and a set of values for the standard deviation sd=c(1,10,20,40). Estimate the mean of *X* with a sample of size 20 for each of the values of sd (obtain 1000 such samples for each sd and plot the histogram of the 1000 sample means). How do the results differ?
+
+**Answer**
+When standard deviation of *X* is larger, the histogram of the sample means becomes more spread out. 
+
+```{r,fig.width=8,fig.height=8,out.width=800,echo = TRUE}
+sd <- c(1,10,20,40) # four values of standard deviation 
+B <- 1000 # 1000 samples for each sd
+smean <- matrix(nrow=B, ncol=length(sd)) # stores all sample means 
+# go through all samples and all sd  
+for(i in 1:B){
+  for(j in 1:length(sd)){
+      X <- rnorm(20, mean = 0, sd = sd[j]) # obtain one sample of normal variables
+      smean[i,j] <- mean(X)
+  }
+}
+par(mfrow=c(2,2))
+for(i in 1:length(sd)){
+  hist(smean[,i], freq=FALSE, 
+       main="Histogram of 1000 sample means", xlab = paste("Normal with standard deviation", sd[i]))
+}
+```
+
+**Q2**. Examine how the variability of the sample mean changes with the sample size when sampling from
+one of the following populations ("distributions"):
+
+  + Take as a population a [Binomial](https://en.wikipedia.org/wiki/Binomial_distribution) (generate
+a sample with `rbinom()` with parameters `size=10, prob=.25`). Generate samples of sizes 20, 200 and 2000 from this population. 
+
+  + Take as a population a [Gamma](https://en.wikipedia.org/wiki/Gamma_distribution) (`library(stats), rgamma()` with parameters `shape=10,rate=1` and sample sizes 20, 200, 2000)
+
+**Answer**
+First we sample *X* from binomial distribution: 
+
+```{r,fig.width=9,fig.height=4,out.width=800,echo = TRUE}
+ssize <- c(20, 200, 2000)  
+B <- 1000 
+smean <- matrix(nrow=B, ncol=length(ssize)) 
+for(i in 1:B){
+  for(j in 1:length(ssize)){
+    X <- rbinom(n = ssize[j], size = 10, prob = 0.25)
+    smean[i,j] <- mean(X)
+  }
+}
+par(mfrow=c(1,3))
+for(i in 1:length(ssize)){
+  hist(smean[,i], freq=FALSE, 
+       main=NULL, xlab = paste("Mean of a sample of size ", ssize[i]))
+}
+mtext("Histogram of 1000 sample means", outer = TRUE, line = -2)
+mtext("Binomial distribution", outer = TRUE, line = -4)
+```
+
+Next we sample from a Gamma distribution (to run next code chunk, you will need to install `stats` library if you haven't done so yet). The population mean of a Gamma distribution is `shape`/`rate`. 
+
+In both cases, the sample mean is less variable when sample size is larger.
+
+```{r,fig.width=9,fig.height=4,out.width=800,echo = TRUE}
+library(stats) 
+ssize <- c(20, 200, 2000)  
+B <- 1000 
+smean <- matrix(nrow=B, ncol=length(ssize))  
+for(i in 1:B){
+  for(j in 1:length(ssize)){
+      X <- rgamma(ssize[j], shape=10,rate=1) 
+      smean[i,j] <- mean(X)
+  }
+}
+par(mfrow=c(1,3))
+for(i in 1:length(ssize)){
+  hist(smean[,i], freq=FALSE, 
+       main=NULL, xlab = paste("Mean of a sample of size ", ssize[i]))
+}
+mtext("Histogram of 1000 sample means", outer = TRUE, line = -2)
+mtext("Gamma distribution", outer = TRUE, line = -4)
+```
+
+**Q3**(Advanced). For any of the experiments below, evaluate the average distance of the estimate from its target value as a function of sample size. For each sample, you want to calculate the distance of the sample summary from the population summary and average this across samples. You want to then plot this against the sample size you have used.
+
+**Answer**
+We compute the average distance of sample means from population mean from a normal distribution (with mean 0 and sd 10), and the two distributions in Q2. The average distance decreases when sample size increases in all three plots. 
+
+```{r,fig.height=4,fig.width=9,out.width=800,echo = TRUE}
+ssize <- seq(20, 2030, by = 50) 
+B <- 1000 
+
+diff_normal <- matrix(nrow=B, ncol=length(ssize)) 
+diff_binomial <- matrix(nrow=B, ncol=length(ssize)) 
+diff_gamma <- matrix(nrow=B, ncol=length(ssize)) 
+for(i in 1:B){
+  for(j in 1:length(ssize)){
+      # normal distribution 
+      X <- rnorm(ssize[j], mean = 0, sd = 10) 
+      diff_normal[i,j] <- abs(mean(X))
+      # binomial distribution 
+      X <- rbinom(n = ssize[j], size = 10, prob = 0.25)
+      diff_binomial[i,j] <- abs(mean(X) - 2.5)
+      # gamma distribution 
+      X <- rgamma(ssize[j], shape=10,rate=1) 
+      diff_gamma[i,j] <- abs(mean(X) - 10)
+  }
+}
+par(mfrow=c(1,3))
+plot(ssize, colMeans(diff_normal), pch = 16, cex = 0.8,
+     xlab = "Sample size", ylab = "Average distance in 1000 samples")
+mtext("Normal", outer = FALSE, line = 0)
+plot(ssize, colMeans(diff_binomial), pch = 16, cex = 0.8,
+     xlab = "Sample size", ylab = "Average distance in 1000 samples")
+mtext("Binomial", outer = FALSE, line = 0)
+plot(ssize, colMeans(diff_gamma), pch = 16, cex = 0.8,
+     xlab = "Sample size", ylab = "Average distance in 1000 samples")
+mtext("Gamma", outer = FALSE, line = 0)
+mtext("Distance of sample mean from population mean", outer = TRUE, line = -1.5, font = 2)
+```
+
+## Examples of simulations showing the variability of sample summaries 
+
+We start by producing the  analysis done in lecture. By having the code available you can try changing the parameters and see how this affects the results.
+
+### Stanford Data
+
+The data is obtained from the [Stanford Common Data Set](https://ucomm.stanford.edu/cds) and it reports information as of October 15, 2016. The data are in "Stanford.txt" on canvas. The following R command reads
+in the data, assuming you have downloaded it into a folder named "data":
+
+```{r}
+library(readr)
+Stanford <- read_delim("Stanford.txt", 
+    "\t", escape_double = FALSE, trim_ws = TRUE)
+
+```
+
+Let's focus on the degree seeking undergraduate population, extracting the relevant columns and renaming 
+them:
+
+```{r}
+Stanford <- Stanford[,c(1,3)]
+names(Stanford) <- c("Race/Ethnicity", "Number")
+Stanford <- Stanford[-10,]
+UGRace <- rep(Stanford$"Race/Ethnicity", Stanford$Number)
+```
+
+<!---
+to produce html you want fig.height=4,fig.width=9
+--->
+```{r,fig.height=4,fig.width=8,out.width=700}
+par(mar=c(5,22,4,2))   # base R style graphics command for margins
+                       # par allows you to have multiple graphs side-by-side
+
+barplot(sort(summary(as.factor(UGRace)))/length(UGRace), horiz = T, las=1)
+```
+
+We now explore how different random  samples of size 100 from this population would lead to different estimates  of  the proportion of "Black or African American" and "Hispanic/Latino".
+
+
+```{r}
+ssize <- 100
+B <- 1000
+SamplePropB <- NULL
+SamplePropH <- NULL
+for(i in 1:B){
+  observation <- sample(UGRace,ssize,replace=FALSE)
+  SamplePropB <- c(SamplePropB, 
+                 sum(observation == "Black or African American, non-Hispanic")/ssize)
+  SamplePropH <- c(SamplePropH, sum(observation=="Hispanic/Latino")/ssize)
+}
+```
+
+```{r,fig.height=4.5,fig.width=7.5,out.width=700}
+par(mfrow=c(1,2))
+hist(SamplePropB, main="Black or African American", xlab="Sample Proportion", xlim=c(0,.3))
+abline(v=0.064, col=2, lwd=2)
+hist(SamplePropH, main="Hispanic/Latino", xlab="Sample Proportion", xlim=c(0,.4))
+abline(v=0.16,col=2,lwd=2)
+```
+**Question**: how will the histograms change if ssize<-1000?
+
+### Roulette
+
+Let's make R play roulette
+
+```{r}
+values <- c("00", 0:36)
+play <- sample(values,1)
+play
+```
+
+Suppose we want to bet on red. Let's make a function
+that takes a possible value from `values` and tells us whether  our bet on red wins or not.
+
+```{r}
+red_values <- c( 1,  3,  5,  7,  9,  12, 14, 16, 18,
+               21, 23,  25, 27, 28, 30, 32, 34,  36)
+red_bet = function(spin_value) {
+    return(spin_value %in% red_values)
+}
+red_bet(play)
+```
+
+Let's evaluate the sampling variability of the proportion of red wins.
+
+We plot the histograms of 1000 experiments each for 100 or 1000 spins:
+```{r}
+ssize1 <- 100
+ssize2 <- 1000
+B <- 1000
+x <- NULL
+y <- NULL
+for(i in 1:B){
+  x <- c(x, mean(red_bet(sample(values, ssize1, replace=TRUE))))
+  y <- c(y, mean(red_bet(sample(values, ssize2, replace=TRUE))))
+}
+```
+
+```{r,fig.height=4.5,fig.width=7.5,out.width=700}
+par(mfrow=c(1,2))
+hist(x, main="100 spins", xlab="Proportion of red",xlim=c(0.28,0.62))
+abline(v=18/38,col=2,lwd=2)
+hist(y,main="1000 spins",xlab="Proportion of red",xlim=c(0.28,0.62))
+abline(v=18/38,col=2,lwd=2)
+```
+
+
+## Different abstract population models
+
+There are many abstract population models. The technical name for these is **distributions** and one learns about them in classes that teach about probability. Probability is one really beautiful subject, so we warmly encourage you  to learn about it, but we cannot cover it in this class. 
+
+We are going to mention a few distributions in this lab, because they are useful to provide examples of abstract populations and you might find it handy to have a few options to generate random numbers.
+
+In base R there are built in functions to work with some of these distributions, and more similar functions for more models are available in the package `stats`.
+For each distribution `xxx` there are four functions: `dxxx()`, `pxxx()`,`qxxx()`, `rxxx()`
+
+- **d**`xxx(t)` gives you the density function at point `t` for the distribution. The density is the height of the histogram for a very large sample.
+- **p**`xxx(t)` gives you the probability that a variable with that distribution has values smaller or equal to `t`
+- **q**`xxx(p)` gives you the p-quantile of the distribution (which value `t` is such that the probability of the variable being smaller than `t` is equal to `p`)
+- **r**`xxx(n)` generates `n` random samples from the distribution.
+
+Depending on the distributions, there are different parameters you will specify. A good place to start to understand how this is done in R is using `help(Distributions)`.
+
+### Normal distribution
+
+Let's look once again at the commands we have used to introduce the [Normal](https://en.wikipedia.org/wiki/Normal_distribution) distribution. This is also known as Gaussian and has two parameters: mean and standard deviation. We will learn more about this distribution later in the week.
+
+```{r,fig.width=9,fig.height=4,out.width=800}
+par(mfrow=c(1,2))
+x <- seq(-1,30,length.out = 1000)
+plot(x, dnorm(x,mean=15,sd=4), main="Density of a normal, mean=15 and sd=4", ylab="Density", pty="l")
+X <- rnorm(1000, mean=15, sd=4)
+hist(X, main="Histogram of 1000 outcomes from N(15,4)", freq = FALSE)
+```
+
+### The Continuous Uniform
+
+The [uniform](https://en.wikipedia.org/wiki/Uniform_distribution_(continuous)) describes a variable that can take any value between a min and a max and such that any interval of equal length in the range [min, max] has the same probability. Again, to have a quick sense of what it represents, we look at the density function and at the histogram of random samples.
+
+```{r,fig.width=9,fig.height=4,out.width=800}
+par(mfrow=c(1,2))
+x <- seq(-1,30,length.out = 1000)
+plot(x, dunif(x, min=10, max=20), main="Density of a uniform between 10 and 20",ylab="Density",pty="l")
+X <- runif(1000,min=10,max=20)
+hist(X, main="Histogram of 1000 outcomes from U[10,20]")
+```
+
+### Chi-square Distribution
+
+You might have studied the  $\chi^2$-test in a biology class. The [chi-square](https://en.wikipedia.org/wiki/Chi-squared_distribution) distribution describes a population that can take on only positive numbers. There are two parameters that can vary: they are called degrees of freedom (*df*) and non-centrality.
+
+```{r,fig.width=9,fig.height=4,out.width=800}
+par(mfrow=c(1,2))
+x <- seq(0,30,length.out = 1000)
+plot(x, dchisq(x,df=10), main="Density of a chi-square with 10 df", ylab="Density",pty="l")
+X <- rchisq(1000,df=10)
+hist(X, main="Histogram of 1000 outcomes from Chi^2(10)")
+```
+
+
+## Learning the mean of a population
+
+We imagine that we would like to learn the mean of one population and see how the sample mean works for us.
+
+### Uniform distribution U[50,100]
+
+Let's start thinking about what the mean of this distribution is. I claim it is 75. Why?
+To have a sense we can take a very large sample from U[50,100], show its histogram and calculate its sample mean.
+```{r}
+X <- runif(10000, min=50, max=100)
+hist(X,freq=FALSE)
+abline(v=mean(X), col=2,lwd=2)
+lines(sort(X), dunif(sort(X), min=50, max=100), col="blue")
+```
+
+Now let's try to estimate this mean from samples.
+We do the same conceptual experiments we have done for the Stanford students and for the roulette. We are going to try four sample sizes and see how the sample variability changes.
+
+```{r,fig.width=8,fig.height=8,out.width=800}
+ssize <- c(10,100,1000,5000)
+B <- 1000
+smean <- matrix(nrow=B, ncol=length(ssize))
+for(i in 1:B){
+  for(j in 1:length(ssize)){
+      X <- runif(ssize[j], min=50, max=100)
+      smean[i,j] <- mean(X)
+  }
+}
+par(mfrow=c(2,2))
+for(i in 1:4){
+  hist(smean[,i], freq=FALSE, 
+       main="Histogram of 1000 sample means", xlab = paste("Mean of a sample of size", ssize[i]), xlim=c(60,90))
+}
+```
+
+**Question**: Does the sample mean provide an estimate of the population mean? What is the relationship between the variability of the estimate and the size of the sample? 
+
+### Poisson distribution with parameter lambda
+
+This is another model for an abstract population. The values of [Poisson](https://en.wikipedia.org/wiki/Poisson_distribution) are positive natural numbers and the mean of the distribution is specified by the parameter lambda. The mean is also equal to the variance. Poisson distributions are often used to model rare events.
+
+To have a sense of what it looks like we take a large sample
+
+```{r}
+library(stats)
+X <- rpois(10000,lambda=15)
+summary(X)
+par(mfrow=c(1,1))
+hist(X, freq=FALSE)
+abline(v=mean(X), col=2, lwd=2)
+points(sort(X), dpois(sort(X), lambda=15), col="blue", pch=20)
+```
+
+Let's redo the experiment
+
+```{r,fig.width=8,fig.height=8,out.width=800}
+ssize <- c(10,100,1000,5000)
+B <- 1000
+smean <- matrix(nrow=B, ncol=length(ssize))
+for(i in 1:B){
+  for(j in 1:length(ssize)){
+      X <- rpois(ssize[j], lambda=15)
+      smean[i,j] <- mean(X)
+  }
+}
+par(mfrow=c(2,2))
+for(i in 1:4){
+  hist(smean[,i], freq=FALSE, main = "Histogram of 1000 sample means", 
+       xlab=paste("Mean of a sample of size", ssize[i]), xlim=c(11,19))
+
+}
+```
+
+
+
+
+

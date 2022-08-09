@@ -1,0 +1,284 @@
+---
+title: 'Lab Report: Exploring Data'
+author: "Anishka Chauhan"
+output:
+  html_document:
+    keep_md: yes
+  pdf_document: default
+---
+
+Important: Make sure that you can knit this document to pdf. 
+
+# About RMarkdown files
+
+RMarkdown files like this one are files that combine text with `R` code. The idea is that
+you can produce a report that consists of text and supporting computations which are embedded into
+the text. You write this file with a usual text editor and then open it with `RStudio`, which loads it
+into the editor window. Or you can write it in the editor window from scratch. If you hit the knit
+button, then `RStudio` will produce a `pdf` or `html` file that contains the text and it will also
+execute the `R` commands and embed the results into the text. You should prepare all your homework
+using RMarkdown. You will find this so convenient that you may decide to use it for projects in other
+classes!
+
+**Instructions**: complete the tasks below by executing the `R` code line-by-line. You are welcome to work alone or with a partner. Don't worry about understanding everything perfectly but do ask a member of the teaching team if something is preventing from moving forward. Start by adding **your name** where in the `author` field in the header.
+
+# Step 0: File Management
+
+We will start by going over a simple effective strategy to manage data files with `RStudio`. RMarkdowns are self-sufficient documents; when `Rmd` files knit (into something like `html` or `pdf`), they can access data or image files in the directory (folder) where the `Rmd` is saved. 
+
+1. Create a folder for this course on your computer. 
+
+2. Save this `Rmd` file in this folder. 
+
+3. Download and save the data in this folder (this lab, the [Snow Cholera outbreak data file](https://web.stanford.edu/class/stats101/data/snow.csv) which you can find at https://web.stanford.edu/class/stats101/data/snow.csv). 
+
+
+### Step 1: Snow's Outbreak data
+
+`read.csv()` is a workhorse function/method in `R` since data are often stored compactly this way (Comma Separated Values). You can read in a copy of John Snow's data on the number of deaths from Cholera by date in the outbreak near broad street using `read.csv()`. We'll do this one for you. 
+
+```{r}
+snow <- read.csv("snow.csv", 
+                 stringsAsFactors = FALSE) # recommended setting
+snow_table <- read.table("./snow.csv", sep = ',', header = T, stringsAsFactors = FALSE)
+```
+Notice we **assigned** the result to a variable called `snow`. Specifically, `read.csv` returns a `data.frame`, one of the most common and important object types in `R`. In this lab, we will learn about what it contains, how to interrogate and interact with it, and how to do basic operations on it (like using it to make plots).
+
+### Additional Notes
+
+- RMarkdown will also accept relative file paths. For example, if you have your datasets in a subfolder  called `data`, you could read the file like so:
+```{r, eval=FALSE}
+snow <- read.csv("data/snow.csv")
+```
+
+- If applicable, decompress (unzip) data into the weekly folder before loading it into `R`.
+
+- When a `Rmd` file is knit, all code is executed. So, it doesn't matter if an object is loaded in the `Console` session. (Note that the `Console` *does not* automatically look for files in the same place. To see where `Console` is looking for files, you may wish to check the working directory and change the working directory to be the same as where your `Rmd` is stored; google the details if interested).
+
+We will talk a little bit about how `R` works below but here is a motivating example which comes up frequently in data science: representing dates.
+
+
+```{r}
+head(snow$Date)
+range(snow$Date)
+
+typeof(snow$Date)
+class(snow$Date)
+
+snow$Date <- as.Date(snow$Date, format="%Y-%m-%d")
+
+typeof(snow$Date)
+class(snow$Date)
+
+range(snow$Date)
+
+```
+
+**Question** Why does is the date range reported differently the second time range is called?
+The dates are not character, they are date classes. 
+
+
+## Step 2: Knit with a Summary and a Plot
+
+If the above step was sucessful, you will now be able to knit a document and it will display a summary of each variable found in our `data.frame`.
+
+```{r}
+class(snow)
+summary(snow)
+
+```
+
+
+### A brief note on R for those who have programming experience
+
+`R` is an "environment" designed specifically for statistics and data analysis rather than a proper programming language (`R` is a user interface, just a not graphical one). As a result, `R` allows researchers to break a lot of programming "rules." The result is that `R` tends to be much more convenient and flexible than true programming languages like `C` or `FORTRAN` (which `R` calls to do most of the difficult calculations). That said, it is possible to see performance losses (in terms of speed or memory usage), many of which can be avoided with good coding practices. 
+
+## The data.frame
+
+In `R`, everything is either an object or a function. Many common functions are in fact methods that call the appropriate function based on the `class` of the object.  What is the `class` of `snow`? 
+
+```{r}
+class(snow)
+```
+
+So now we know that `snow` is a `data.frame`. Many functions and libraries in `R` anticipate that the data are stored in `data.frames`, like `ggplot()`. Another method you can call on an object that tells us something about its type is `typeof`. Let's see what this returns when called on "snow":
+
+```{r}
+typeof(snow)
+```
+
+Apparently `snow` is also a `list`. This is because a `data.frame` is a special instance of the more general type of object called a list. Lists in `R` are quite flexible collections that consist of one or more `elements`. Let's call `length()` on `snow` and also the handy functions, `dim`, `nrow`, and `ncol`. What does each of these report? 
+
+```{r}
+length(snow)
+dim(snow)
+nrow(snow)
+ncol(snow)
+# dataframe X has dimensions (n x p), X has n rows
+# X has p columns 
+# there are n observations stored in X 
+# each observation consisting of p features 
+```
+
+Now, let's create a new variable that stores whether the data came from August or September called 'month' using syntax like format(snow$Date, "%m"). 
+```{r}
+typeof(snow$Date)
+head(snow$Date) 
+
+snow$month = format(snow$Date, "%m") 
+# 1: data came from sept, 0: data came from another month
+snow$sept = snow$month == '09'
+```
+
+Square brackets can be used to access particular elements (row is the first index, column is the second). What is the fifth element of the second column of our data frame?
+```{r}
+snow$month[1]
+
+dim(snow)
+snow[3, 4] # third observation of fourth feature
+snow[3, 5]
+
+snow$Case
+snow[5, 2]
+
+snow[1, ] # access entire row of first observation
+snow[, 1] # only first column of all rows
+
+snow[1:5, 1] # first five rows of the first column 
+
+mat_A = c(1,2,3,4)
+# 1, 2
+# 3, 4
+mat_A = matrix(mat_A, nrow = 2, ncol = 2, byrow=T)
+mat_A
+
+mat_A = matrix(mat_A, nrow = 2, ncol = 2, byrow=F)
+mat_A
+```
+
+# Lists
+
+Lists (i.e., unstructured lists) are useful when each element does not have the same shape or element type.
+
+```{r}
+letters 
+sample(c(1,2,3), 2, replace=F) 
+sample(c(1,2,3), 2, replace=T) 
+sample(c(1,2,3)) # creates permutation of object 
+
+paste(sample(letters), collapse="") # specific permutation of the alphabet 
+# paste helps with concatenation, collapse = "" concatenates in one string w/o seperator
+
+
+unique_code = paste(sample(letters), collapse="")
+
+rnorm(3) # arg is number of sample generated
+
+x = matrix(rnorm(10000), nrow = 1000, ncol = 10)
+
+# 1000 x 10 
+sampleA <- list(unique_code = paste(sample(letters), collapse=""), 
+                x = matrix(rnorm(10000), nrow = 1000, ncol = 10))
+sampleA$unique_code
+dim(sampleA$x)
+```
+
+Lists can be nested too, which can make them compact for data storage. 
+```{r}
+
+sampleB <- list(unique_code = paste(sample(letters), collapse=""), 
+                x = matrix(rnorm(10000), nrow = 1000, ncol = 10))
+class(sampleA)
+class(sampleB)
+samples <- list(A = sampleA, 
+                B = sampleB)
+```
+
+```{r}
+samples$B$unique_code
+sampleB$unique_code
+
+# second way 
+samples[['B']][['unique_code']]
+
+example_list = list('1' = 'a', 
+                    '2' = 'b')
+example_list
+example_list$'1' = paste0(example_list$'1', '---')
+example_list$'2' = paste0(example_list$'2', '---')
+# appended --- to the cell and concatenate the string
+
+for (i in 1:2) {
+  print(example_list$i)
+}
+
+for (i in 1:2) {
+  print(example_list[[as.character(i)]])
+}
+
+```
+
+**Plotting Exercise** 
+
+One of the most basic things you can do with a data frame is make plots. You'll do some basic exercises now using `ggplot`. You'll need to load the `ggplot2` library.
+
+```{r}
+require(ggplot2) 
+library(ggplot2)
+```
+
+Use `ggplot` to make a graph which plots the number of fatal cases over time (Case)
+
+```{r}
+ggplot(snow) + aes(x = Date, y = Case) + geom_point()
+# plot(snow$Date, snow$Case) 
+
+snow_plot = ggplot(snow) + aes(x = Date, y = Case) + geom_point()
+
+snow_plot
+
+# gsave('./case_fig.png', snow_plot)
+```
+
+- Alter the axes and title to be more informative by using the "labs" aesthetic and specifying the arguments "x", "y", "title". `ylab` and `xlab`. You do this by "adding" these aesthetics to the end of the ggplot command. 
+
+```{r}
+
+ggplot(snow) + aes(x = Date, y = Case) + geom_point() + 
+  labs(y = "Number of Cases", title = "Cholera Outbreak", subtitle = "Source: Snow", x="Date (in 1854)")
+```
+
+Calculate the sample correlation. Notice that results can combined with text with the `paste` command.
+
+```{r}
+cor(snow$Case, snow$Death)
+paste("The number of cases correlates with the number of deaths at", 
+     cor(snow$Case, snow$Death))
+
+sprintf("The number of cases correlates with the number of deaths at %f", cor(snow$Case, snow$Death))
+
+
+```
+
+- Use the `round` command to make the sample correlation a more appropriate number of digits for display purposes. Next add that result to your plot by specifying `subtitle` in the labs call
+
+```{r}
+cholera_plot = ggplot(snow) + aes(x = Date, y = Case) + geom_point()
+
+cholera_plot = cholera_plot + labs(y = 'Number of Cases', title = 'Cholera Outbreak') 
+
+cholera_plot <- cholera_plot + 
+  labs(subtitle = paste("The number of cases correlates with the number of deaths at", round(cor(snow$Case, snow$Death), 3)))
+
+subtit = paste("The number of cases correlates with the number of deaths at", round(cor(snow$Case, snow$Death), 3))
+
+cholera_plot = cholera_plot + labs(subtitle = subtit) 
+cholera_plot
+```
+
+- Add a red vertical line at the 7th of September when the pump handle was removed. Do this using `geom_vline()` (as in 'vertical line'). To this, you may wish to see the examples in the help file and fix the appropriate value by calling `as.Date()`.
+
+```{r}
+cholera_plot = cholera_plot + geom_vline(xintercept = as.Date("1854-09-07"), col = 'red')
+cholera_plot
+```
