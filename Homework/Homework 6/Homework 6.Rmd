@@ -1,0 +1,73 @@
+---
+title: "Homework 6"
+author: "Anishka Chauhan"
+date: "`r Sys.Date()`"
+output:
+  pdf_document: default
+  html_document: default
+---
+1a) 
+
+``` {r}
+x = rnorm(1000, mean = 0, sd = 1)
+for (i in 1:100) 
+  x[i] = x[i] + 1
+pvalue = 2* pnorm(-abs(x))
+```
+
+1b) 
+``` {r}
+discovery = pvalue < 0.05 
+
+type2Error = sum(pvalue[1:100] > 0.05)
+type1Error = sum(pvalue[101:1000] < 0.05)
+paste0("Number of Type I errors: ", type1Error)
+paste0("Number of Type 2 errors: ", type2Error)
+paste0("False Discovery Proportion: ", type1Error/sum(discovery))
+
+```
+
+1c) 
+``` {r}
+BH<-function(p,alpha = 0.05){
+    pw<-na.omit(p)
+    n<-length(pw)
+    pw<-sort(pw)
+    comp<-(pw<(1:n)*alpha/n)
+    outcome<-sum(comp==TRUE)    
+    if(outcome>0){
+      last<-max((1:n)[comp==TRUE])
+      pcut<-pw[last]
+      shr<-p*0
+      shr[p<=pcut]<-1
+      out<-list(shr,sum(shr>0,na.rm=T),pcut)
+      names(out)<-c("Reject","Total.Rej","Pcut")
+    }
+    else
+      {
+        shr<-p*0
+        out<-list(shr,outcome,0)
+        names(out)<-c("Reject","Total.Rej","Pcut")
+      }
+    return(out)
+    
+  }
+```
+
+1d)
+``` {r}
+bh = BH(pvalue)
+
+# false positive -> reject null when null hypothesis is true (H1 when should be H0)
+# false negative -> accept null when null hypothesis is false (H0 when should be H1)
+
+bh_type1 = sum(bh$Reject[101:1000] == 1) 
+bh_type2 = sum(bh$Reject[1:100] == 0)
+
+paste0("Number of Type I errors: ", bh_type1)
+paste0("Number of Type 2 errors: ", bh_type2)
+paste0("False Discovery Proportion: ", bh_type1/sum(bh$Reject == 1))
+```
+
+1e) 
+The BH method had more type 2 errors than the standard method but less type 1 errors. The FDP for the BH method is also NaN as it had no rejections, but the standard method had an FDP of 73.8%. This indicates that in this case, the standard method is preferable because it has less type 2 errors than the BH method and was able to produce an FDP.  

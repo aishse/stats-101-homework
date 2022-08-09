@@ -1,0 +1,127 @@
+---
+title: "Homework 3"
+author: "Anishka Chauhan"
+date: "`r Sys.Date()`"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+``` {r}
+if (!require(pacman)) {install.packages(pacman)}
+pacman::p_load(ggplot2,readr,tidyr,dplyr)
+```
+
+1a) 
+``` {r}
+x = rnorm(50)
+range_x = range(x)
+a = range_x[1]
+b = range_x[2]
+paste0("[a,b] = ", a, ",", " ", b) 
+paste0("Mean of values is ", mean(x))
+paste0("Median of values is ", median(x))
+```
+1b) 
+``` {r}
+y1 = a- (2*(b - a))
+y100 = a + (2*(b - a))
+y = seq(y1, y100, length.out = 100)
+z = seq(100)
+
+loo.mean <- function(z,y,x) {
+  x = replace(x, 1, y[z])
+  return(mean(x))
+}
+
+loo.median <- function (z, y, x) {
+  x = replace(x, 1, y[z])
+  return(median(x))
+}
+mns = sapply(z, loo.mean, y, x)
+meds = sapply(z, loo.median, y,x)
+plot(y, mns, xlab = "Values of x1", ylab = "Mean of dataset")
+plot(y, meds, xlab = "Values of x1", ylab = "Median of dataset")
+
+```
+
+1c) Changing 1 value in a dataset has a greater impact on the mean than it does on the median. The graph showing the mean vs different values of x1 shows that the mean changed at a constant rate, indicating any changes in x1 change the mean. The graph showing median vs different values of x1 shows that the median stays constant as x1 is less than 0, then when x1 is greater than 0, jumps to a positive value and stays constant at that value as x1 stays positive. This indicates that median is only drastically affected by changes in sign of a value; otherwise it stays constant. 
+
+
+2)
+``` {r}
+
+result = c()
+B = 10000
+for(i in 1:B) {
+  rel_freq = sample(1:100, 50, replace = TRUE)
+
+  rel_freq = rel_freq/sum(rel_freq)
+
+  d_index = 1 - sum(rel_freq^2)
+  result = c(result, d_index <= 1-(1/length(rel_freq)))
+}
+result = table(result)
+
+plot(result, xlab = "Is Diversity Index Less than 1-1/m?", ylab = "Number of Observations")
+ 
+```
+
+Simulating the diversity index of B random datasets containing 50 relative frequency values and evaluating whether the index is less than 1-1/length of the dataset shows that all B simulations returned a true value, indicating the diversity index of a dataset pi...pm is always less than 1-1/m. 
+
+3a) 
+For the training set I would expect the cubic regression to have a lower RSS because it has more flexibility. For the test set, I would expect the linear RSS to be lower than the cubic RSS because the cubic RSS would most likely be overfitted to the training set and therefore have higher error with a test set. 
+
+3b) The cubic regression will have more flexibiity than the linear regression, so the cubic RSS will have lower training RSS than the linear regression RSS. There is not enough information to know if the cubic regression test RSS will be higher or lower than the linear regression test RSS because we don't know how far the true relationship is from linear, so if its closer to linear the linear test RSS would be lower and if its closer to cubic the cubic test RSS would be lower instead. 
+
+ 
+``` {r}
+pacman::p_load(ISLR)
+data(Auto)
+
+```
+
+4a)
+``` {r}
+pacman::p_load(dplyr)
+if (!require(GGally)) {install.packages(GGally,type='source')}
+X <- select_if(Auto, is.numeric)   # drop other qualitative variables
+ggpairs(X)
+correlations = cor(X)
+correlations
+```
+
+4b) 
+``` {r}
+y = Auto$mpg
+X <- dplyr::select(Auto, -mpg, -name)
+mpg_reg = lm(y ~., X)
+summary(mpg_reg)
+```
+There seems to be a relationship between the predictors and the response. The year, origin, and cylinders variables have statistically significant relationship. The year coefficient suggests that it is the variable that has the strongest/most plausible correlation with mpg. For the weight coefficient, the sign indicates that cylinders and mpg are negatively corellated, and the magnitude indicates for every increase of 1 mpg, the weight of the car goes down by 0.006574 lbs. 
+
+
+4c) 
+``` {r}
+plot(mpg_reg)
+```
+The residuals vs leverage plot indicates that very few points have very high leverage, with point 14 having the highest, making it an outlier. The residual plots do suggest the presense of outliers. The residuals vs fitted shows the red line as being somewhat curved, indicating there are some minor problems with the fit. The residuals vs fitted value graph is also in a somewhat cone shape, indicating that the variance is not constant and therefore there is another problem with the regression model. 
+
+
+4d)
+``` {r}
+mpg_reg_log = lm(log(y) ~., X)
+plot(mpg_reg_log)
+```
+
+
+``` {r}
+mpg_reg_sqrt = lm(sqrt(y) ~., X)
+plot(mpg_reg_sqrt)
+```
+
+``` {r}
+mpg_reg_sqr = lm(y^2 ~., X)
+plot(mpg_reg_sqr)
+```
+The logarithmic transformation of y seems to improve the fit of the regression. The scale-location plot for the logarithmic transformation is the flattest out of all the plots, indicating its variance stays constant for the most part. The logarithmic transformation also has the least high leverage points. 

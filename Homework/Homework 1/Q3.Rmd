@@ -1,0 +1,31 @@
+``` {r}
+library('lubridate') 
+```
+```{r}
+men100 <- read.csv("data/100men.csv",sep='\t')
+women100 <- read.csv("data/100women.csv",sep='\t')
+women100$nDate <- as_date(as.character(women100$Date),format='%b %d, %Y')
+require('ggplot2')
+```
+```{r}
+ggplot(women100,aes(x=nDate,y=Time)) + geom_point()
+```
+
+3a) 
+``` {r}
+nationality <- as.vector(women100$Nationality)
+nationality <- gsub(" ", "", nationality); 
+nationality <- gsub("WestGermany", "Germany", nationality) 
+nationality <- gsub("EastGermany", "Germany", nationality)
+nationality <- gsub("UnitedStates", "USA", nationality) 
+womenNationality <- data.frame(nationality) 
+
+nationality <- as.vector(men100$Nation)
+nationality <- gsub("West Germany", "Germany", mnationality)
+
+menNationality <- data.frame(nationality)
+```
+3b) 
+``` {r}
+
+```

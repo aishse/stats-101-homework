@@ -1,0 +1,6 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+Working reproducibily helps with rooting out sources of error that could potentially undermine a computation-based science. It also facilitates better teamwork as it requires communication about the development process of the study, and allows other researchers to use the methods developed for their own studies instead of going through the expense of creating their own for the same tasks. 
