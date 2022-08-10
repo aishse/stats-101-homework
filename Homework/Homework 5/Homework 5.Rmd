@@ -88,7 +88,7 @@ paste0("ABC/Washington Post Interval ", (0.48 - 0.47) - 1.96*abc_sd, ", ",  (0.4
 ``` {r}
 
 nbc_null= sample(c("Clinton", "Trump", "Other"), 40816, replace = TRUE, prob = c(0.475, 0.475,0.05))
-abc_null = sample(c("Clinton", "Trump", "Other"), 1128, replace = TRUE, prob = c(0.51, 0.44,0.05))
+abc_null = sample(c("Clinton", "Trump", "Other"), 1128, replace = TRUE, prob = c(0.475, 0.475,0.05))
 
 nbc_nullsd = sd(boot_poll(nbc_null))
 abc_nullsd = sd(boot_poll(abc_null)) 
