@@ -1,0 +1,231 @@
+---
+title: "Data Science 101 Review Lab"
+date: "5/30/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning = FALSE)
+```
+
+## Today's Activity
+
+Today's activity will analyze a data set of the 2016 United States presidential election; the unit of observation is the county. The data are replication materials for Mohanty, Pete and Robert Shaffer. 2019. 'Messy Data, Robust Inference?' *Political Analysis*, 27 (2) [link](https://www.cambridge.org/core/journals/political-analysis/article/messy-data-robust-inference-navigating-obstacles-to-inference-with-bigkrls/7CB852E25FF58D06ED6888F1A3A13F54). which are available in full on Harvard's Dataverse website [link](https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/CYYLOK). Complete as many review activities as time allows and don't forget to upload to **Gradescope**.
+
+# The data
+
+Vote share is the proportion of votes a candidate receives divided by the sum of the proportion that the two major candidates receive. This is useful in the United States since third party candidates typically receive a very small number of votes in presidential elections. Here we focus on the change in Republican vote share between 2012 and 2016, measured as a percentage. For county i = 1, 2, ... , N, we operationalize the election results as 
+
+$$y_i = 100*\big(\frac{p_i^{\text{Trump2016}}}{p_i^{\text{Trump2016}} + p_i^{\text{Clinton2016}}} - \frac{p_i^{\text{Romney2012}}}{p_i^{\text{Romney2012}} + p_i^{\text{Obama2012}}}\big)$$
+Mohanty and Shaffer (2019) investigate whether the opioid crisis affected the election and so CDC data on mortality rates by county (and change in them over the last decade) are also included alongside standard demographics and predictors.
+
+Start by reading in both data files and combining them into a data frame called 'election'.
+```{r}
+X <- read.csv("X_2016.csv")          # contains dummies columns for state, washington DC
+y <- unlist(read.csv("y_gop_2016_delta.csv"))
+
+election <- X[,1:17] # data other than state
+election$state <- colnames(X)[-c(1:17)][apply(X[,-c(1:17)], 1, which.max)] # state as one column
+election$y <- y
+```
+
+
+(1) Start by describing the data. How many observations are there? Which state has the most counties? Which of the *x* variables do you think likely had a large effect on elections? Present summary statistics of *y* as well as three *x* variables.
+
+```{r}
+nrow(election) # N == 3106 counties
+sort(table(election$state), decreasing = TRUE)  # Texas has the most
+
+summary(election$y) # note counties have very different population sizes
+                    # so this does not mean trump did 5.5% with national vote
+mean(election$y > 0)
+
+summary(election$high_school_grad) # proportion who are high school grads
+summary(election$percent_white)
+summary(election$unemployment)    # percent of the county unemployed
+```
+Race and education variables are typically extremely important in US elections. Disentangling the effects of race, education, and economic variables like income and unemployment is typically very difficult however.
+
+(2) What is the correlation between *y* and an *x* variable you think may predict election results in the US? Compute Pearson's and either Spearman's or Kendall's correlation. Which do you think is the more appropriate measure here?
+
+One of the non-parametric measures is approriate here since we do not know whether the distribution of y is Gaussian (normal) and we know that the percentage of a county which is white is not (since it bounded on [0,1], rather than potentially taking any real value). Kendall's, arguably the most cautious, is arguably the best of the three here.
+```{r}
+cor(election$y, election$percent_white)
+cor(election$y, election$percent_white, method = "spearman")
+cor(election$y, election$percent_white, method = "kendall")
+
+```
+
+(3) Create a histogram of *y*. How many counties would describe as having similiar results to 2012? 
+
+```{r}
+library(ggplot2)
+
+ggplot(election) + aes(x = y) + 
+  geom_histogram(fill="lightgrey", binwidth = 1) +
+  geom_histogram(data=subset(election, abs(y) < 5), binwidth = 1) + 
+  labs(x="Change in Republican Vote Share, 2012-2016",
+       y="Number of Counties",
+       title="How did Trump do compared to Romney at the county level?",
+       subtitle=paste0(sum(abs(election$y) < 5), 
+                       " of 3106 counties were within 5 points of 2012")
+       ) + 
+  theme_minimal()
+```
+
+(4) Create a scatterplot of *y* with the age of the county's voters as *x*. Have the color of the points indicated by *rural* (an ordinal variable from 1-9, where 1 indicates most urban and 9 indicates most rural). 
+```{r}
+ggplot(election) + aes(x = age, y = y, col = rural) + 
+  geom_point() + theme_minimal() + 
+  labs(title="What kind of counties did Trump do better than Romney in?")
+``` 
+
+
+(5) Choose a state where you are from or have lived or would like to. Plot a histogram of the election results for that state with a line indicating the state average and another at 0. Now bootstrap the election results for this state and plot the histogram.  
+
+```{r}
+TX <- election[election$state == "TX",]
+
+ggplot(TX) + aes(x = y) + geom_histogram(binwidth = 1) + 
+  labs(y= "Number of Counties", 
+       x = "Change in Republican Vote Share in Texas, 2012-16",
+       title="Election Results in Texas") +
+  theme_minimal() + 
+  geom_vline(xintercept=0, col="blue") + 
+  geom_vline(xintercept = mean(TX$y), # mean() looks outside ggplot, so use TX$y
+             col="green")
+
+boot.means <- c()
+for(i in 1:1000)
+  boot.means[i] <- mean(sample(TX$y, nrow(TX), replace=TRUE))
+
+ggplot(data.frame(b = boot.means)) + aes(x=b) + 
+  geom_histogram() + theme_minimal() + labs("Bootstrap Replicates of Texas County-Level Average change in voteshare")
+
+```
+
+
+(6) Construct a 95% confidence interval for the mean level of *y* using a normal approximation and again using the bootstrap.
+
+```{r}
+N <- nrow(election)
+
+lower <- mean(election$y) - 2*sd(election$y)/N^.5
+upper <- mean(election$y) + 2*sd(election$y)/N^.5
+
+cat("Using a normal approximation (i.e., assuming the central limit theorem applies), the 95% confidence interval for y is (", lower, ",", upper, ").\n\n")
+
+boot.means <- c()
+for(i in 1:1000)
+  boot.means[i] <- mean(sample(election$y, N, replace=TRUE))
+
+lower <- quantile(boot.means, 0.025)
+upper <- quantile(boot.means, 0.975)
+
+cat("Using the quantiles of the bootstrap, the 95% confidence interval for y is (", lower, ",", upper, ").\n\n")
+
+```
+
+(7) Using the bootstrap, construct a 95% confidence interval for the correlation between the unemployment rate and *y*.
+
+```{r}
+boot.cors <- c()
+for(i in 1:1000){
+  indices <- sample(N, replace=TRUE)
+  boot.cors[i] <- cor(election$y[indices], 
+                      election$unemployment[indices], 
+                      method="spearman")
+}
+
+lower <- quantile(boot.cors, 0.025)
+upper <- quantile(boot.cors, 0.975)
+
+cat("Using the quantiles of the bootstrap, the 95% confidence interval for the Spearman correlation between and the unemployment rate is (", lower, ",", upper, ").\n\n")
+  
+```
+
+(8) Create a dummy variable which indicates whether *y* is positive called *g*. Perform a chi square test. Does *g* appear to be independent of *rural*?
+
+```{r}
+table(election$y > 0, election$rural)
+chisq.test(table(election$y > 0, election$rural))
+```
+No, we reject the null that Trump's 2016 performance, when compared with Romney's 2012 performance, is independent of how rural a county is. (We cannot tell from this test whether Trump did better or worse in rural counties, though the plot above shows that he did do better with rural voters than Romney.)
+
+(9) Perform a t-test on *y*. Does it appear to differ from 0?
+
+```{r}
+t.test(election$y)
+```
+
+(10) Compare the election results in the most rural parts of the country. Perform a permutation test of the hypothesis that, of those, Texas differs from the rest of the country.
+
+```{r}
+most_rural <- election[election$rural==9,]
+table(most_rural$state=="TX")
+obs.diff <- mean(most_rural$y[most_rural$state == "TX"]) - mean(most_rural$y[most_rural$state != "TX"])
+
+permuted.diff <- c()
+for(i in 1:10000){
+  permuted.labs <- sample(most_rural$state)
+  permuted.diff[i] <- mean(most_rural$y[permuted.labs == "TX"]) - mean(most_rural$y[permuted.labs != "TX"])
+
+}
+ 
+p <- mean(abs(permuted.diff) > abs(obs.diff)) 
+p
+```
+
+(11) Below find two models which attempt to predict the electoral swing as a function of latitude and longitude. 
+
+(a) Which of the three loss functions below is arguably the best (in your view) in the context of election forecasting?  
+
+RMSE is based on squared error loss and tends to prevent large errors. If the question is predicting which counties change since the last election absolute error is more appropriate since it values small mistakes equally. The final loss function, based on L0 error (right or wrong up to some small epsilon), is likely too sensitive for this type of data.
+
+(b) Which model performs better? 
+
+Model 2 performs better in and out of sample using all loss functions.
+
+(c) Does either show evidence of overfitting?
+
+While both do a bit better in sample than out of sample, overfitting has not set in, even with the more complex model. Presumably it may soon if the polynomial degree is increased further.
+
+```{r}
+RMSE <- function(targets, estimates) mean((targets - estimates)^2)^.5
+MAE <- function(targets, estimates) mean(abs(targets - estimates))
+ML0 <- function(targets, estimates, epsilon=0.05) mean(abs(targets - estimates) < epsilon)
+
+test_fit <- train_fit <- matrix(ncol = 2, nrow = 3)
+colnames(train_fit) <- c("train_model1", "train_model2")
+colnames(test_fit) <- c("test_model1", "test_model2")
+rownames(test_fit) <- rownames(train_fit) <- c("RMSE", "MAE", "ML0")
+
+set.seed(2016)
+training <- sample(c(TRUE, FALSE), nrow(election), replace=TRUE, p=c(0.8, 0.2))
+
+model1.trained <- lm(y ~ lat + lon, election[training,])
+train_fit[1,1] <- RMSE(model1.trained$fitted.values, election$y[training])
+train_fit[2,1] <- MAE(model1.trained$fitted.values, election$y[training])
+train_fit[3,1] <- ML0(model1.trained$fitted.values, election$y[training])
+
+y_hat1 <- predict(model1.trained, election[!training,])
+test_fit[1,1] <- RMSE(y_hat1, election$y[!training])
+test_fit[2,1] <- MAE(y_hat1, election$y[!training])
+test_fit[3,1] <- ML0(y_hat1, election$y[!training])
+
+model2.trained <- lm(y ~ lat + lon + lat*lon + I(lat^2) + I(lon^2) + I(lat^3) + I(lon^3) + I(lat^4) + I(lon^4), 
+                       election[training,])
+train_fit[1,2] <- RMSE(model2.trained$fitted.values, election$y[training])
+train_fit[2,2] <- MAE(model2.trained$fitted.values, election$y[training])
+train_fit[3,2] <- ML0(model2.trained$fitted.values, election$y[training])
+
+y_hat2 <- predict(model2.trained, election[!training,])
+test_fit[1,2] <- RMSE(y_hat2, election$y[!training])
+test_fit[2,2] <- MAE(y_hat2, election$y[!training])
+test_fit[3,2] <- ML0(y_hat2, election$y[!training])
+
+train_fit
+test_fit
+```
+
+
